@@ -3157,6 +3157,12 @@ code {
   font-weight: 600;
   padding: 12px 20px 6px;
 }
+.df-section-count {
+  margin-left: 8px;
+  color: var(--text-faint);
+  font-weight: 500;
+  letter-spacing: 0;
+}
 .df-row {
   display: grid;
   grid-template-columns: 36px 1fr auto auto;
@@ -3227,6 +3233,19 @@ code {
 }
 .df-row:hover .df-row-menu { opacity: 1; }
 .df-row-menu:hover { background: var(--border); color: var(--text); }
+.df-section-more {
+  margin: 6px 20px 10px;
+  width: auto;
+  justify-content: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.df-section-more:hover:not(:disabled) {
+  background: var(--bg-muted);
+  color: var(--text);
+}
 .df-row-collapse {
   background: transparent;
   border: none;

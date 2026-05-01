@@ -465,8 +465,13 @@ export function ProjectView({
             clearTimeout(persistTimer);
             persistTimer = null;
           }
+          textBuffer.flush();
           persistMessageById(message.id);
         };
+        const textBuffer = createBufferedTextUpdates({
+          updateMessage: (updater) => updateMessageById(message.id, updater),
+          persistSoon,
+        });
 
         void reattachDaemonRun({
           runId,
@@ -475,14 +480,13 @@ export function ProjectView({
           initialLastEventId: message.lastRunEventId ?? null,
           handlers: {
             onDelta: (delta) => {
-              updateMessageById(message.id, (prev) => ({ ...prev, content: prev.content + delta }));
-              persistSoon();
+              textBuffer.appendContent(delta);
             },
             onAgentEvent: (ev) => {
-              updateMessageById(message.id, (prev) => ({ ...prev, events: [...(prev.events ?? []), ev] }));
-              persistSoon();
+              textBuffer.appendEvent(ev);
             },
             onDone: () => {
+              textBuffer.flush();
               updateMessageById(
                 message.id,
                 (prev) => ({ ...prev, runStatus: 'succeeded', endedAt: prev.endedAt ?? Date.now() }),
@@ -499,6 +503,7 @@ export function ProjectView({
               onProjectsRefresh();
             },
             onError: (err) => {
+              textBuffer.flush();
               setError(err.message);
               updateMessageById(
                 message.id,
@@ -515,6 +520,7 @@ export function ProjectView({
             },
           },
           onRunStatus: (runStatus) => {
+            textBuffer.flush();
             updateMessageById(
               message.id,
               (prev) => ({
@@ -535,6 +541,7 @@ export function ProjectView({
             }
           },
           onRunEventId: (lastRunEventId) => {
+            textBuffer.flush();
             updateMessageById(message.id, (prev) => ({ ...prev, lastRunEventId }));
             persistSoon();
           },
@@ -545,6 +552,7 @@ export function ProjectView({
             }
           })
           .finally(() => {
+            textBuffer.flush();
             if (persistTimer) clearTimeout(persistTimer);
             reattachControllersRef.current.delete(runId);
             reattachCancelControllersRef.current.delete(runId);
@@ -647,6 +655,7 @@ export function ProjectView({
         }, 500);
       };
       const pushEvent = (ev: AgentEvent) => {
+        textBuffer.flush();
         updateAssistant((prev) => ({ ...prev, events: [...(prev.events ?? []), ev] }));
         persistAssistantSoon();
         // Track Write tool invocations so we can auto-open the destination
@@ -675,9 +684,7 @@ export function ProjectView({
         }
       };
 
-      const appendContent = (delta: string) => {
-        updateAssistant((prev) => ({ ...prev, content: prev.content + delta }));
-        persistAssistantSoon();
+      const applyContentDelta = (delta: string) => {
         for (const ev of parser.feed(delta)) {
           if (ev.type === 'artifact:start') {
             liveHtml = '';
@@ -695,14 +702,24 @@ export function ProjectView({
         }
       };
 
+      const textBuffer = createBufferedTextUpdates({
+        updateMessage: updateAssistant,
+        persistSoon: persistAssistantSoon,
+        onContentDelta: applyContentDelta,
+      });
+
       const controller = new AbortController();
       const cancelController = new AbortController();
       abortRef.current = controller;
       cancelRef.current = cancelController;
       const handlers = {
-        onDelta: appendContent,
-        onAgentEvent: pushEvent,
+        onDelta: textBuffer.appendContent,
+        onAgentEvent: (ev: AgentEvent) => {
+          if (ev.kind === 'text') textBuffer.appendTextEvent(ev.text);
+          else pushEvent(ev);
+        },
         onDone: () => {
+          textBuffer.flush();
           for (const ev of parser.flush()) {
             if (ev.type === 'artifact:end') {
               setArtifact((prev) => (prev ? { ...prev, html: ev.fullContent } : null));
@@ -745,6 +762,7 @@ export function ProjectView({
           onProjectsRefresh();
         },
         onError: (err: Error) => {
+          textBuffer.flush();
           setError(err.message);
           updateAssistant((prev) => ({
             ...prev,
@@ -1142,4 +1160,69 @@ function isTerminalRunStatus(status: ChatMessage['runStatus']): boolean {
 
 function isActiveRunStatus(status: ChatMessage['runStatus']): boolean {
   return status === 'queued' || status === 'running';
+}
+
+function createBufferedTextUpdates({
+  updateMessage,
+  persistSoon,
+  onContentDelta,
+}: {
+  updateMessage: (updater: (prev: ChatMessage) => ChatMessage) => void;
+  persistSoon: () => void;
+  onContentDelta?: (delta: string) => void;
+}) {
+  let pendingContentDelta = '';
+  let pendingTextEventDelta = '';
+  let flushFrame: number | null = null;
+
+  const flush = () => {
+    if (flushFrame !== null) {
+      cancelAnimationFrame(flushFrame);
+      flushFrame = null;
+    }
+    if (!pendingContentDelta && !pendingTextEventDelta) return;
+    const contentDelta = pendingContentDelta;
+    const textEventDelta = pendingTextEventDelta;
+    pendingContentDelta = '';
+    pendingTextEventDelta = '';
+    updateMessage((prev) => ({
+      ...prev,
+      content: prev.content + contentDelta,
+      events: textEventDelta
+        ? [...(prev.events ?? []), { kind: 'text', text: textEventDelta }]
+        : prev.events,
+    }));
+    persistSoon();
+    if (contentDelta) onContentDelta?.(contentDelta);
+  };
+
+  const scheduleFlush = () => {
+    if (flushFrame !== null) return;
+    flushFrame = requestAnimationFrame(() => {
+      flushFrame = null;
+      flush();
+    });
+  };
+
+  const appendContent = (delta: string) => {
+    pendingContentDelta += delta;
+    scheduleFlush();
+  };
+
+  const appendTextEvent = (delta: string) => {
+    pendingTextEventDelta += delta;
+    scheduleFlush();
+  };
+
+  const appendEvent = (ev: AgentEvent) => {
+    if (ev.kind === 'text') {
+      appendTextEvent(ev.text);
+      return;
+    }
+    flush();
+    updateMessage((prev) => ({ ...prev, events: [...(prev.events ?? []), ev] }));
+    persistSoon();
+  };
+
+  return { appendContent, appendTextEvent, appendEvent, flush };
 }

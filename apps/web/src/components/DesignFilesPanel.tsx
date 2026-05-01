@@ -30,6 +30,8 @@ const SECTION_LABEL_KEY: Record<Section, keyof Dict> = {
 };
 
 const SECTION_ORDER: Section[] = ['pages', 'sketches', 'scripts', 'images', 'other'];
+const INITIAL_SECTION_FILE_LIMIT = 30;
+const SECTION_FILE_LIMIT_INCREMENT = 200;
 
 /**
  * Full-panel browser for a project's `.od/projects/<id>/` folder. Mirrors
@@ -55,6 +57,7 @@ export function DesignFilesPanel({
   const [hover, setHover] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ name: string; top: number; left: number } | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [sectionLimits, setSectionLimits] = useState<Partial<Record<Section, number>>>({});
 
   const grouped = useMemo(() => {
     const groups: Record<Section, ProjectFile[]> = {
@@ -156,12 +159,18 @@ export function DesignFilesPanel({
           {files.length === 0 ? (
             <div className="df-empty">{t('designFiles.empty')}</div>
           ) : (
-            SECTION_ORDER.filter((s) => grouped[s].length > 0).map((section) => (
+            SECTION_ORDER.filter((s) => grouped[s].length > 0).map((section) => {
+              const sectionFiles = grouped[section];
+              const visibleLimit = sectionLimits[section] ?? INITIAL_SECTION_FILE_LIMIT;
+              const visibleFiles = sectionFiles.slice(0, visibleLimit);
+              const hiddenCount = sectionFiles.length - visibleFiles.length;
+              return (
               <div className="df-section" key={section}>
                 <div className="df-section-label">
                   {t(SECTION_LABEL_KEY[section])}
+                  <span className="df-section-count">{sectionFiles.length}</span>
                 </div>
-                {grouped[section].map((f) => {
+                {visibleFiles.map((f) => {
                   const active = preview === f.name;
                   const isHovered = hover === f.name;
                   return (
@@ -206,8 +215,28 @@ export function DesignFilesPanel({
                     </button>
                   );
                 })}
+                {hiddenCount > 0 ? (
+                  <button
+                    type="button"
+                    className="df-section-more"
+                    onClick={() =>
+                      setSectionLimits((curr) => ({
+                        ...curr,
+                        [section]: Math.min(
+                          sectionFiles.length,
+                          visibleLimit + SECTION_FILE_LIMIT_INCREMENT,
+                        ),
+                      }))
+                    }
+                  >
+                    {t('assistant.unfinishedMore', {
+                      n: Math.min(hiddenCount, SECTION_FILE_LIMIT_INCREMENT),
+                    })}
+                  </button>
+                ) : null}
               </div>
-            ))
+              );
+            })
           )}
           <div
             className={`df-drop ${draggingFiles ? 'dragging' : ''}`}
