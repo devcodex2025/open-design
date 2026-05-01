@@ -426,6 +426,7 @@ export const ptBR: Dict = {
   'designFiles.sectionImages': 'Imagens',
   'designFiles.sectionSketches': 'Esboços',
   'designFiles.sectionOther': 'Outros',
+  'designFiles.showMore': 'Mostrar +{n} mais',
   'designFiles.kindHtml': 'Página HTML',
   'designFiles.kindImage': 'Imagem',
   'designFiles.kindSketch': 'Esboço',

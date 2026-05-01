@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useT } from '../i18n';
 import type { Dict } from '../i18n/types';
 import { projectFileUrl } from '../providers/registry';
@@ -58,6 +58,7 @@ export function DesignFilesPanel({
   const [menuPos, setMenuPos] = useState<{ name: string; top: number; left: number } | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [sectionLimits, setSectionLimits] = useState<Partial<Record<Section, number>>>({});
+  const [isSectionExpansionPending, startSectionExpansion] = useTransition();
 
   const grouped = useMemo(() => {
     const groups: Record<Section, ProjectFile[]> = {
@@ -219,19 +220,26 @@ export function DesignFilesPanel({
                   <button
                     type="button"
                     className="df-section-more"
+                    disabled={isSectionExpansionPending}
+                    aria-busy={isSectionExpansionPending}
                     onClick={() =>
-                      setSectionLimits((curr) => ({
-                        ...curr,
-                        [section]: Math.min(
-                          sectionFiles.length,
-                          visibleLimit + SECTION_FILE_LIMIT_INCREMENT,
-                        ),
-                      }))
+                      startSectionExpansion(() => {
+                        setSectionLimits((curr) => ({
+                          ...curr,
+                          [section]: Math.min(
+                            sectionFiles.length,
+                            visibleLimit + SECTION_FILE_LIMIT_INCREMENT,
+                          ),
+                        }));
+                      })
                     }
                   >
-                    {t('assistant.unfinishedMore', {
-                      n: Math.min(hiddenCount, SECTION_FILE_LIMIT_INCREMENT),
-                    })}
+                    <Icon name={isSectionExpansionPending ? 'spinner' : 'plus'} size={12} />
+                    <span>
+                      {t('designFiles.showMore', {
+                        n: Math.min(hiddenCount, SECTION_FILE_LIMIT_INCREMENT),
+                      })}
+                    </span>
                   </button>
                 ) : null}
               </div>

@@ -417,6 +417,7 @@ export const zhTW: Dict = {
   'designFiles.sectionImages': '圖片',
   'designFiles.sectionSketches': '草圖',
   'designFiles.sectionOther': '其它',
+  'designFiles.showMore': '再顯示 {n} 個',
   'designFiles.kindHtml': 'HTML 頁面',
   'designFiles.kindImage': '圖片',
   'designFiles.kindSketch': '草圖',

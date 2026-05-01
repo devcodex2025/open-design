@@ -3236,11 +3236,15 @@ code {
 .df-section-more {
   margin: 6px 20px 10px;
   width: auto;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
+  gap: 6px;
   background: var(--bg-subtle);
   border: 1px solid var(--border);
   color: var(--text-muted);
   font-size: 12px;
+  line-height: 1;
 }
 .df-section-more:hover:not(:disabled) {
   background: var(--bg-muted);

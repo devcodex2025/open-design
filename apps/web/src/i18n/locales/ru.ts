@@ -426,6 +426,7 @@ export const ru: Dict = {
   'designFiles.sectionImages': 'Изображения',
   'designFiles.sectionSketches': 'Эскизы',
   'designFiles.sectionOther': 'Другое',
+  'designFiles.showMore': 'Показать ещё +{n}',
   'designFiles.kindHtml': 'HTML страница',
   'designFiles.kindImage': 'Изображение',
   'designFiles.kindSketch': 'Эскиз',

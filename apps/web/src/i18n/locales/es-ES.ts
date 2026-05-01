@@ -428,6 +428,7 @@ export const esES: Dict = {
   'designFiles.sectionImages': 'Imágenes',
   'designFiles.sectionSketches': 'Bocetos',
   'designFiles.sectionOther': 'Otros',
+  'designFiles.showMore': 'Mostrar +{n} más',
   'designFiles.kindHtml': 'Página HTML',
   'designFiles.kindImage': 'Imagen',
   'designFiles.kindSketch': 'Boceto',

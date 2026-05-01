@@ -427,6 +427,7 @@ export const fa: Dict = {
   'designFiles.sectionImages': 'تصاویر',
   'designFiles.sectionSketches': 'طرح‌ها',
   'designFiles.sectionOther': 'سایر',
+  'designFiles.showMore': '+{n} بیشتر',
   'designFiles.kindHtml': 'صفحه HTML',
   'designFiles.kindImage': 'تصویر',
   'designFiles.kindSketch': 'طرح',

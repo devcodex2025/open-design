@@ -427,6 +427,7 @@ export const de: Dict = {
   'designFiles.sectionImages': 'Bilder',
   'designFiles.sectionSketches': 'Sketches',
   'designFiles.sectionOther': 'Andere',
+  'designFiles.showMore': '+{n} weitere anzeigen',
   'designFiles.kindHtml': 'HTML-Seite',
   'designFiles.kindImage': 'Bild',
   'designFiles.kindSketch': 'Sketch',

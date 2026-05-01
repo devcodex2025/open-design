@@ -417,6 +417,7 @@ export const zhCN: Dict = {
   'designFiles.sectionImages': '图片',
   'designFiles.sectionSketches': '草图',
   'designFiles.sectionOther': '其它',
+  'designFiles.showMore': '再显示 {n} 个',
   'designFiles.kindHtml': 'HTML 页面',
   'designFiles.kindImage': '图片',
   'designFiles.kindSketch': '草图',
