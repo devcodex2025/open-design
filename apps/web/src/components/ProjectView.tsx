@@ -118,8 +118,8 @@ export function ProjectView({
   const [openRequest, setOpenRequest] = useState<{ name: string; nonce: number } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const cancelRef = useRef<AbortController | null>(null);
-  const sendTextBufferCancelRef = useRef<(() => void) | null>(null);
-  const reattachTextBufferCancelsRef = useRef<Set<() => void>>(new Set());
+  const sendTextBufferRef = useRef<BufferedTextUpdates | null>(null);
+  const reattachTextBuffersRef = useRef<Set<BufferedTextUpdates>>(new Set());
   const reattachControllersRef = useRef<Map<string, AbortController>>(new Map());
   const reattachCancelControllersRef = useRef<Map<string, AbortController>>(new Map());
   const completedReattachRunsRef = useRef<Set<string>>(new Set());
@@ -188,10 +188,10 @@ export function ProjectView({
 
   useEffect(() => {
     return () => {
-      sendTextBufferCancelRef.current?.();
-      sendTextBufferCancelRef.current = null;
-      for (const cancel of reattachTextBufferCancelsRef.current) cancel();
-      reattachTextBufferCancelsRef.current.clear();
+      sendTextBufferRef.current?.cancel();
+      sendTextBufferRef.current = null;
+      for (const textBuffer of reattachTextBuffersRef.current) textBuffer.cancel();
+      reattachTextBuffersRef.current.clear();
       for (const controller of reattachControllersRef.current.values()) {
         controller.abort();
       }
@@ -203,14 +203,18 @@ export function ProjectView({
     };
   }, [project.id, activeConversationId]);
 
-  const cancelSendTextBuffer = useCallback(() => {
-    sendTextBufferCancelRef.current?.();
-    sendTextBufferCancelRef.current = null;
+  const cancelSendTextBuffer = useCallback((flushPending = false) => {
+    if (flushPending) sendTextBufferRef.current?.flush();
+    sendTextBufferRef.current?.cancel();
+    sendTextBufferRef.current = null;
   }, []);
 
-  const cancelReattachTextBuffers = useCallback(() => {
-    for (const cancel of reattachTextBufferCancelsRef.current) cancel();
-    reattachTextBufferCancelsRef.current.clear();
+  const cancelReattachTextBuffers = useCallback((flushPending = false) => {
+    for (const textBuffer of reattachTextBuffersRef.current) {
+      if (flushPending) textBuffer.flush();
+      textBuffer.cancel();
+    }
+    reattachTextBuffersRef.current.clear();
   }, []);
 
   // Hydrate the open-tabs state once per project. After this initial
@@ -488,9 +492,9 @@ export function ProjectView({
           updateMessage: (updater) => updateMessageById(message.id, updater),
           persistSoon,
         });
-        reattachTextBufferCancelsRef.current.add(textBuffer.cancel);
+        reattachTextBuffersRef.current.add(textBuffer);
         const unregisterTextBuffer = () => {
-          reattachTextBufferCancelsRef.current.delete(textBuffer.cancel);
+          reattachTextBuffersRef.current.delete(textBuffer);
         };
 
         void reattachDaemonRun({
@@ -593,7 +597,6 @@ export function ProjectView({
     void attachRecoverableRuns();
     return () => {
       cancelled = true;
-      cancelReattachTextBuffers();
     };
   }, [
     daemonLive,
@@ -605,7 +608,6 @@ export function ProjectView({
     persistMessageById,
     refreshProjectFiles,
     onProjectsRefresh,
-    cancelReattachTextBuffers,
   ]);
 
   const handleSend = useCallback(
@@ -737,7 +739,7 @@ export function ProjectView({
         persistSoon: persistAssistantSoon,
         onContentDelta: applyContentDelta,
       });
-      sendTextBufferCancelRef.current = textBuffer.cancel;
+      sendTextBufferRef.current = textBuffer;
 
       const controller = new AbortController();
       const cancelController = new AbortController();
@@ -973,8 +975,8 @@ export function ProjectView({
 
   const handleStop = useCallback(() => {
     const stoppedAt = Date.now();
-    cancelSendTextBuffer();
-    cancelReattachTextBuffers();
+    cancelSendTextBuffer(true);
+    cancelReattachTextBuffers(true);
     cancelRef.current?.abort();
     cancelRef.current = null;
     for (const controller of reattachCancelControllersRef.current.values()) {
@@ -1198,6 +1200,8 @@ function isTerminalRunStatus(status: ChatMessage['runStatus']): boolean {
 function isActiveRunStatus(status: ChatMessage['runStatus']): boolean {
   return status === 'queued' || status === 'running';
 }
+
+type BufferedTextUpdates = ReturnType<typeof createBufferedTextUpdates>;
 
 function createBufferedTextUpdates({
   updateMessage,
